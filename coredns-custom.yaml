@@ -1,3 +1,4 @@
+HELLO
 # 
 # This ConfigMap is used to customize CoreDNS settings in a Kubernetes cluster.
 # It defines static DNS entries and allows queries to fall through to the next plugin if no match is found.
