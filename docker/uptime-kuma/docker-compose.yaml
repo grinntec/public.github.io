@@ -1,0 +1,16 @@
+# Uptime Kuma
+# https://hub.docker.com/r/louislam/uptime-kuma
+#
+# Notes:
+# - Web server is found at http://<dockerhost-ip>:3001
+version: "3"
+services:
+  uptime-kuma:
+    container_name: uptime-kuma
+    image: louislam/uptime-kuma:latest
+    ports:
+      - 3001:3001
+    volumes:
+      - /opt/uptime-kuma:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
