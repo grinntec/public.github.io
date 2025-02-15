@@ -1,62 +1,146 @@
-Param(
-    [string] $vaultName,
-    [string] $secretName,
-    [string] $fromEmail,
-    [string] $toEmail
-)
+#Param(
+#    [string] $vaultName,
+#    [string] $secretName,
+#    [string] $fromEmail,
+#    [string] $toEmail
+#)
 
-# Authenticate to Azure using Managed Identity
+# Hardcoded values for testing
+$fromEmail = "neil@grinntec.net"
+$toEmail = "neilgri@gmail.com"
+$subscriptionName = "grinntec-sandbox"
+$vaultName = "AutomaticResourceDelete"
+$secretName = "SendGridApiKey"
+
+# Authenticate to Azure using a managed identity.
+# Set the Azure context to the current subscription.
+Write-Output "Authenticating to Azure..."
 $AzureContext = (Connect-AzAccount -Identity).Context
 Set-AzContext -SubscriptionId $AzureContext.Subscription.Id | Out-Null
+Write-Output "Authenticated to Azure with subscription ID: $($AzureContext.Subscription.Id)"
 
-# Get the current date and time
+# Get the current date and time.
 $currentDate = Get-Date
+Write-Output "Current date and time: $currentDate"
 
-# Get all resource groups in the subscription
+# Get all resource groups in the current subscription.
+Write-Output "Retrieving all resource groups in the subscription..."
 $resourceGroups = Get-AzResourceGroup
+Write-Output "Found $($resourceGroups.Count) resource groups."
 
+# Define the email notification function
+function Send-EmailNotification($subscriptionName, $resourceName, $resourceType, $resourceGroupName, $deletionTime, $fromEmail, $toEmail, $sendGridApiKey) {
+    Write-Output "Preparing to send email notification..."
+    $emailBody = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { padding: 20px; }
+        .header { font-size: 18px; font-weight: bold; }
+        .content { margin-top: 20px; }
+        .content p { margin: 5px 0; }
+        .content .label { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">Resource Deletion Notification</div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>The following resource is scheduled for deletion:</p>
+            <p class="label">Subscription Name:</p> <p>$subscriptionName</p>
+            <p class="label">Resource Name:</p> <p>$resourceName</p>
+            <p class="label">Resource Type:</p> <p>$resourceType</p>
+            <p class="label">Resource Group:</p> <p>$resourceGroupName</p>
+            <p class="label">Scheduled Deletion:</p> <p>$deletionTime</p>
+            <p>To prevent deletion, please remove or update the 'ScheduledDeletion' tag on the resource.</p>
+            <p>Thank you.</p>
+        </div>
+    </div>
+</body>
+</html>
+"@
+
+    # Create email body
+    $emailContent = @{
+        personalizations = @(@{ to = @(@{ email = $toEmail }) })
+        from = @{ email = $fromEmail }
+        subject = "Resource Deletion Notification"
+        content = @(@{ type = "text/html"; value = $emailBody })
+    } | ConvertTo-Json -Depth 5
+
+    # Log the JSON payload for debugging
+    Write-Output "JSON payload:"
+    Write-Output $emailContent
+    
+    # Send email using SendGrid API
+    Write-Output "Sending email using SendGrid API..."
+    $response = Invoke-RestMethod -Uri "https://api.sendgrid.com/v3/mail/send" -Method Post -Headers @{
+        Authorization = "Bearer $sendGridApiKey"
+        "Content-Type" = "application/json"
+    } -Body $emailContent
+    
+    Write-Output "Email notification sent for resource $resourceName."
+}
+
+# Retrieve SendGrid API Key from Azure Key Vault
+Write-Output "Retrieving SendGrid API Key from Azure Key Vault..."
+$sendGridApiKeySecret = Get-AzKeyVaultSecret -VaultName $vaultName -Name $secretName
+
+if ($sendGridApiKeySecret -eq $null) {
+    Write-Output "Failed to retrieve SendGrid API Key from Azure Key Vault. Please verify the vault name and secret name."
+    throw "Failed to retrieve SendGrid API Key."
+} else {
+    $sendGridApiKey = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($sendGridApiKeySecret.SecretValue))
+    Write-Output "SendGrid API Key retrieved."
+}
+
+# For each resource group.
 foreach ($resourceGroup in $resourceGroups) {
     $resourceGroupName = $resourceGroup.ResourceGroupName
+    Write-Output "Processing resource group: $resourceGroupName"
 
-    # Get all resources in the resource group
+    # Get all resources in the resource group.
+    Write-Output "Retrieving resources in resource group: $resourceGroupName"
     $resources = Get-AzResource -ResourceGroupName $resourceGroupName
+    Write-Output "Found $($resources.Count) resources in resource group: $resourceGroupName"
     $allResourcesDeleted = $true
 
+    # Check if the resources have a CreatedOnDate tag and do not have an ExcludeFromDeletion tag.
     foreach ($resource in $resources) {
-        # Check if Tags property exists and contains the necessary tags
         if ($resource.Tags -and $resource.Tags.ContainsKey("CreatedOnDate") -and -not $resource.Tags.ContainsKey("ExcludeFromDeletion")) {
             $createdOnDate = $resource.Tags["CreatedOnDate"]
             $deletionTime = if ($resource.Tags.ContainsKey("ScheduledDeletion")) { $resource.Tags["ScheduledDeletion"] } else { $null }
 
+            # If a resource has a ScheduledDeletion tag, compare the current date with the scheduled deletion date.
             if ($createdOnDate) {
                 $resourceCreatedDate = [datetime]::Parse($createdOnDate)
                 $ageInMinutes = ($currentDate - $resourceCreatedDate).TotalMinutes
+                Write-Output "Resource $($resource.Name) created on $resourceCreatedDate (age: $ageInMinutes minutes)"
 
+                # If the current date is past the scheduled deletion date, delete the resource.
                 if ($deletionTime) {
                     $scheduledDeletion = [datetime]::Parse($deletionTime)
                     if ($currentDate -ge $scheduledDeletion) {
-                        # Delete resource
+                        # Delete the resource.
                         Remove-AzResource -ResourceId $resource.ResourceId -Force
                         Write-Output "Deleted resource: $($resource.Name)"
                     } else {
+                        Write-Output "Resource $($resource.Name) scheduled for deletion at $scheduledDeletion"
                         $allResourcesDeleted = $false
                     }
+                # If there is no ScheduledDeletion tag and the resource is older than 10 minutes,
+                # schedule the deletion for 10 minutes in the future and tag the resource with the scheduled deletion date.
                 } elseif ($ageInMinutes -gt 10) {
-                    # Schedule deletion
+                    # Schedule the deletion.
                     $scheduledDeletion = $currentDate.AddMinutes(10)
                     $resource | Set-AzResource -Tag @{ "ScheduledDeletion" = $scheduledDeletion.ToString("o") } -Force
                     Write-Output "Scheduled deletion for resource: $($resource.Name) at $scheduledDeletion."
 
-                    # Start Runbook 2 to send email notification
-                    Start-AzAutomationRunbook -AutomationAccountName "yourAutomationAccountName" -ResourceGroupName "yourResourceGroupName" -Name "SendEmailNotification" -Parameters @{
-                        "resourceName" = $resource.Name
-                        "resourceGroupName" = $resourceGroupName
-                        "deletionTime" = $scheduledDeletion
-                        "vaultName" = $vaultName
-                        "secretName" = $secretName
-                        "fromEmail" = $fromEmail
-                        "toEmail" = $toEmail
-                    }
+                    # Send the email notification about the scheduled deletion.
+                    Send-EmailNotification -subscriptionName $subscriptionName -resourceName $resource.Name -resourceType $resource.ResourceType -resourceGroupName $resourceGroupName -deletionTime $scheduledDeletion -fromEmail $fromEmail -toEmail $toEmail -sendGridApiKey $sendGridApiKey
 
                     $allResourcesDeleted = $false
                 } else {
@@ -70,9 +154,14 @@ foreach ($resourceGroup in $resourceGroups) {
         }
     }
 
+    # If all resources in a resource group are deleted, delete the resource group itself.
     if ($allResourcesDeleted) {
-        # Delete resource group
+        # Delete the resource group.
         Remove-AzResourceGroup -Name $resourceGroupName -Force
         Write-Output "Deleted resource group: $resourceGroupName"
+    } else {
+        Write-Output "Resource group $resourceGroupName contains undeleted resources."
     }
 }
+
+Write-Output "Runbook execution completed."
