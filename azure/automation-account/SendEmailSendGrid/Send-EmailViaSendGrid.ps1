@@ -30,9 +30,7 @@ $VaultName = $vaultName
 $sendGridApiKeySecure = Get-AzKeyVaultSecret -VaultName $VaultName -Name $secretName
 
 # Convert SecureString to plain text
-$sendGridApiKey = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($sendGridApiKeySecure.SecretValue)
-)
+$sendGridApiKey = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($sendGridApiKeySecure.SecretValue))
 
 # Construct HTTP headers
 $headers = @{
