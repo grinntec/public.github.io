@@ -1,0 +1,34 @@
+name: 'Build Matrix from CI Modes'
+description: 'Converts a JSON map of dir:mode into a matrix array of dir,mode objects for use in GitHub Actions matrix jobs'
+
+inputs:
+  ci_modes:
+    description: JSON object mapping directory to CI mode (e.g., {"test-00":"validate","test-01":"deploy"})
+    required: true
+
+outputs:
+  matrix:
+    description: "Array of {dir, mode} objects for use as a matrix"
+    value: ${{ steps.build-matrix.outputs.matrix }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build matrix array from ci_modes map
+      id: build-matrix
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v jq >/dev/null 2>&1; then
+          echo "jq is required but not installed." >&2
+          exit 1
+        fi
+
+        ci_modes_input='${{ inputs.ci_modes }}'
+        matrix=$(echo "$ci_modes_input" | jq -c 'to_entries | map({dir: .key, mode: .value})')
+
+        if echo "$matrix" | jq empty 2>/dev/null; then
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+        else
+          echo "matrix=[]" >> $GITHUB_OUTPUT
+        fi

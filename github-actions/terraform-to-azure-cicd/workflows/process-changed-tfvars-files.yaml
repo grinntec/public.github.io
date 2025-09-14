@@ -1,0 +1,151 @@
+name: Process Changed terraform.tfvars Files
+
+on:
+  workflow_call:
+    
+    inputs:
+      tfvars_file:
+        required: true
+        type: string
+    
+    secrets:
+      GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_CLIENT_ID:
+        required: true
+      INFRACOST_API_KEY:
+        required: true
+
+concurrency:
+  cancel-in-progress: false
+  group: ${{ inputs.tfvars_file }}
+
+jobs:
+  process-tfvars:
+    name: Process ${{ inputs.tfvars_file }}
+    runs-on: ubuntu-latest
+    env:
+      AZURE_RESOURCE_GROUP_NAME: "terraform-state"
+      AZURE_STORAGE_ACCOUNT_NAME: "tfstateaccountsandbox"
+      AZURE_CONTAINER_NAME: "tfstatecontainer"
+    
+    steps:
+
+      - name: Azure Login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: false
+          allow-no-subscriptions: true
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Show working file and directory
+        uses: ./.github/actions/show-file
+        id: showfile
+        with:
+          tfvars_file: ${{ inputs.tfvars_file }}
+
+      - name: Read CI mode
+        uses: ./.github/actions/read-ci-mode
+        id: ci_mode
+        with:
+          file: ${{ inputs.tfvars_file }}
+              
+      - name: Configure git for private modules
+        uses: ./.github/actions/configure-git-private-modules
+        with:
+          github_token: ${{ secrets.GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT }}
+
+      - name: Cache Terraform Providers
+        uses: ./.github/actions/cache-terraform-providers
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Ensure TF Lockfile Exists
+        uses: ./.github/actions/ensure-tf-lockfile-exists
+        env:
+          github_token: ${{ secrets.GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT }}
+    
+      - name: Extract important tfvars keys to outputs
+        id: extract
+        uses: ./.github/actions/extract-tfvars
+        with:
+          file: ${{ inputs.tfvars_file }}
+    
+      - name: Create Terraform backend config file
+        uses: ./.github/actions/create-terraform-backend-config-file
+        with:
+          app_name: ${{ steps.extract.outputs.app_name }}
+          env: ${{ steps.extract.outputs.env }}
+          location: ${{ steps.extract.outputs.location }}
+          file: ${{ inputs.tfvars_file }}
+          resource_group_name: ${{ env.AZURE_RESOURCE_GROUP_NAME }}
+          storage_account_name: ${{ env.AZURE_STORAGE_ACCOUNT_NAME }}
+          container_name: ${{ env.AZURE_CONTAINER_NAME }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          dir: ${{ steps.showfile.outputs.dir }}
+
+      - name: Terraform Format
+        uses: ./.github/actions/terraform-fmt
+        with:
+          file: ${{ inputs.tfvars_file }}
+
+      - name: Run TFLint
+        uses: ./.github/actions/tflint
+        with:
+          file: ${{ inputs.tfvars_file }}
+    
+      - name: Terraform Validate
+        uses: ./.github/actions/terraform-validate
+        with:
+          file: ${{ inputs.tfvars_file }}
+        env:
+          GH_PAT: ${{ secrets.GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT }}
+    
+      - name: Terraform Plan
+        uses: ./.github/actions/terraform-plan
+        with:
+          file: ${{ inputs.tfvars_file }}
+        env:
+          GH_PAT: ${{ secrets.GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT }}
+      
+      - name: Run Checkov Security Scan
+        uses: ./.github/actions/terraform-security-scan
+        with:
+          file: ${{ inputs.tfvars_file }}
+
+      - name: TerraformCost Estimate (Infracost)
+        uses: ./.github/actions/terraform-cost-estimate
+        with:
+          file: ${{ inputs.tfvars_file }}
+        env:
+          INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Terraform Apply
+        if: ${{ steps.ci_mode.outputs.ci_mode == 'apply' }}
+        uses: ./.github/actions/terraform-apply
+        with:
+          file: ${{ inputs.tfvars_file }}
+        env:
+          GH_PAT: ${{ secrets.GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT }}
+
+      - name: Terraform Destroy
+        if: ${{ steps.ci_mode.outputs.ci_mode == 'destroy' }}
+        uses: ./.github/actions/terraform-destroy
+        with:
+          file: ${{ inputs.tfvars_file }}
+        env:
+          GH_PAT: ${{ secrets.GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT }}          

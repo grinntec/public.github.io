@@ -1,0 +1,22 @@
+name: "Read ci_mode from tfvars"
+description: "Reads the ci_mode value from a .tfvars file and outputs it."
+
+inputs:
+  file:
+    description: "Path to the .tfvars file"
+    required: true
+
+outputs:
+  ci_mode:
+    description: "The ci_mode value found"
+    value: ${{ steps.extract.outputs.ci_mode }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run script
+      id: extract
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.file }}"

@@ -1,0 +1,24 @@
+name: Terraform Validate
+description: Runs 'terraform validate' in the specified directory.
+
+inputs:
+  file:
+    description: "File to determine which directory to run terraform validate in"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Ensure Terraform is installed
+      shell: bash
+      run: |
+        if ! command -v terraform >/dev/null 2>&1; then
+          echo "❌ Terraform is not installed or not in PATH!"
+          exit 1
+        fi
+
+    - name: Run Terraform Validate via script
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.file }}"

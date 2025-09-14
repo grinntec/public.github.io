@@ -1,0 +1,36 @@
+name: TFLint
+description: Runs 'tflint' in the specified directory, installs TFLint if needed, and writes summary with expandable details.
+
+inputs:
+  file:
+    description: "File to run tflint on"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install TFLint
+      shell: bash
+      run: |
+        set -e
+        TFLINT_VERSION="v0.58.1"
+        PLATFORM="linux_amd64"
+        ZIP="tflint_${PLATFORM}.zip"
+        CHECKSUMS="checksums.txt"
+
+        curl -sLO "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/${ZIP}"
+        curl -sLO "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/${CHECKSUMS}"
+
+        grep "${ZIP}" "${CHECKSUMS}" > "${ZIP}.sha256"
+        sha256sum -c "${ZIP}.sha256"
+
+        unzip -o "${ZIP}"
+        mkdir -p "$HOME/.local/bin"
+        mv tflint "$HOME/.local/bin/"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Run TFLint via script
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.file }}"

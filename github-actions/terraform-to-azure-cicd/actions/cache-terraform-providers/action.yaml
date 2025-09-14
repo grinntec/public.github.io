@@ -1,0 +1,55 @@
+#######################################################################################################
+# Composite Action: Cache Terraform Providers                                                         #
+#                                                                                                     #
+# Purpose:                                                                                            #
+#   - Sets up a cache for Terraform provider plugins to speed up CI/CD runs.                          #
+#   - Uses the lockfile(s) as a cache key to ensure correct provider versions are cached/restored.     #
+#                                                                                                     #
+# How it works:                                                                                       #
+#   - Caches the plugin directory using actions/cache@v4 keyed by OS and lockfile hash.               #
+#   - After caching, runs a script to print debug info and cache result for traceability.             #
+#                                                                                                     #
+# Best Practices:                                                                                     #
+#   - Use a unique cache key per OS and lockfile hash for reliability.                                #
+#   - Print debug info and cache status for easier troubleshooting in CI logs.                        #
+#######################################################################################################
+
+name: Cache Terraform Providers
+description: Set up Terraform plugin cache for faster CI/CD runs
+
+inputs:
+  plugin_cache_dir:
+    description: Directory to store plugin binaries
+    required: false
+    default: ${{ github.workspace }}/.terraform.d/plugin-cache
+  lockfile_pattern:
+    description: File pattern to hash for cache key
+    required: false
+    default: '**/.terraform.lock.hcl'
+
+runs:
+  using: composite
+  steps:
+    # Step 1: Cache the Terraform provider plugins directory.
+    # - Uses actions/cache@v4 to cache the plugin directory.
+    # - The cache key is based on OS and the hash of all matching lockfiles.
+    # - Restore keys allow fallback to less specific caches if an exact match is not found.
+    - name: Cache Terraform Providers
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.plugin_cache_dir }}
+        key: terraform-${{ runner.os }}-${{ hashFiles(inputs.lockfile_pattern) }}
+        restore-keys: |
+          terraform-${{ runner.os }}-
+          terraform-
+
+    # Step 2: Run a debug/result script after caching.
+    # - Prints debug info about the cache config and which files matched the lockfile pattern.
+    # - Reports whether the cache was hit or missed, and shows the cache key used.
+    # - This script should be located at .github/actions/cache-terraform-providers/script.sh
+    - name: Run cache debug and result script
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.plugin_cache_dir }}" "${{ inputs.lockfile_pattern }}" "${{ steps.cache.outputs.cache-hit }}"

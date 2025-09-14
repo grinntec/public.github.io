@@ -1,0 +1,24 @@
+name: Terraform Auto-Format & Push
+description: Automatically runs 'terraform fmt -recursive' in the specified directory, commits and pushes changes if needed, and logs the action to the summary.
+
+inputs:
+  file:
+    description: "File to run terraform fmt on"
+    required: true
+  author_name:
+    description: "Git commit author name"
+    required: false
+    default: "github-actions[bot]"
+  author_email:
+    description: "Git commit author email"
+    required: false
+    default: "github-actions[bot]@users.noreply.github.com"
+
+runs:
+  using: composite
+  steps:
+    - name: Run Terraform Fmt Script
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.file }}" "${{ inputs.author_name }}" "${{ inputs.author_email }}"

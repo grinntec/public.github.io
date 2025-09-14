@@ -1,0 +1,24 @@
+name: "Configure git for private modules"
+description: "Configures git to use a GitHub PAT for private module access, with debug and summary output."
+
+inputs:
+  github_token:
+    description: "GitHub PAT for accessing private modules"
+    required: true
+
+outputs:
+  configured:
+    description: "Whether the git config for private modules was set successfully"
+    value: ${{ steps.configure.outputs.configured }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure git for private modules
+      id: configure
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh"

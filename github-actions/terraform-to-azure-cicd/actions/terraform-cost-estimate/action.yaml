@@ -1,0 +1,37 @@
+name: Terraform Cost Estimate
+description: Run Infracost cost estimation for a Terraform plan
+
+inputs:
+  file:
+    description: "Path to the .tfvars file"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Infracost CLI
+      shell: bash
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
+        echo "$HOME/.infracost/bin" >> $GITHUB_PATH
+
+    - name: Set Infracost API key
+      shell: bash
+      run: |
+        if [ -z "${INFRACOST_API_KEY:-}" ]; then
+          echo "::error::INFRACOST_API_KEY is not set. Please add it to workflow secrets."
+          exit 1
+        fi
+
+    - name: Generate Terraform plan JSON
+      shell: bash
+      run: |
+        DIR="$(dirname "${{ inputs.file }}")"
+        cd "$DIR"
+        terraform show -json tfplan > tfplan.json
+
+    - name: Run Infracost Estimate Script
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "$(dirname "${{ inputs.file }}")/tfplan.json"

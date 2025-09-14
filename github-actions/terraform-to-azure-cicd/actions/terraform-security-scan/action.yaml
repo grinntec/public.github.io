@@ -1,0 +1,35 @@
+name: Checkov Security Scan
+description: Runs Checkov on Terraform code for security best-practices.
+
+inputs:
+  file:
+    description: "Path to the Terraform (.tf) file"
+    required: true
+  author_name:
+    description: "Name of the author"
+    required: true
+  author_email:
+    description: "Email address of the author"
+    required: true
+
+runs:
+  using: composite
+  steps:
+  
+  - name: Cache pip (for requirements)
+    uses: actions/cache@v4
+    with:
+      path: ~/.cache/pip
+      key: ${{ runner.os }}-pip-${{ hashFiles('.github/actions/terraform-security-scan/requirements.txt') }}
+      restore-keys: |
+        ${{ runner.os }}-pip-
+  
+  - name: Install Checkov from requirements
+    shell: bash
+    run: pip install -r .github/actions/terraform-security-scan/requirements.txt
+  
+  - name: Run Checkov scan script
+    shell: bash
+    run: |
+      chmod +x "${{ github.action_path }}/script.sh"
+      "${{ github.action_path }}/script.sh" "${{ inputs.file }}" "${{ inputs.author_name }}" "${{ inputs.author_email }}"

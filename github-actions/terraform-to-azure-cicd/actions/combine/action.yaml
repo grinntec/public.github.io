@@ -1,0 +1,59 @@
+name: "Combine"
+description: "Extracts app_name, env, and location from a terraform.tfvars file and exposes them as outputs."
+
+inputs:
+  app_name:
+    description: "App name"
+    required: true
+  env:
+    description: "Environment (e.g. dev, prod)"
+    required: true
+  location:
+    description: "Location (e.g. eastus, westeurope)"
+    required: true
+  file:
+    description: "Path to the terraform.tfvars file"
+    required: true
+  resource_group_name:
+    description: "Resource Group name"
+    required: true
+  storage_account_name:
+    description: "Storage Account name"
+    required: true
+  container_name:
+    description: "Blob Container name"
+    required: true
+  subscription_id:
+    description: "Azure Subscription ID"
+    required: true
+  tenant_id:
+    description: "Azure Tenant ID"
+    required: true
+  dir:
+    description: "Directory to place backend config (optional, defaults to current directory)"
+    required: false
+    default: "."
+
+outputs:
+  app_name:
+    description: "Extracted app_name value"
+    value: ${{ steps.extract.outputs.app_name }}
+  env:
+    description: "Extracted env value"
+    value: ${{ steps.extract.outputs.env }}
+  location:
+    description: "Extracted location value"
+    value: ${{ steps.extract.outputs.location }}
+  keys:
+    description: "Comma-separated list of keys extracted from tfvars"
+    value: ${{ steps.extract.outputs.keys }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Extract tfvars values to outputs
+      id: extract
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.file }}" "${{ inputs.working_directory }}"

@@ -1,0 +1,95 @@
+#############################################################################################################
+# Workflow: Detect Changed .tfvars Files                                                                   #
+#                                                                                                          #
+# Purpose:                                                                                                 #
+#   - Detect changes to any `terraform.tfvars` file in PRs and pushes to main.                             #
+#   - For each changed .tfvars file, trigger a downstream workflow to process/test/deploy that change.     #
+#                                                                                                          #
+# How it works:                                                                                            #
+#   1. On push to main or PR, only if a `terraform.tfvars` file changes.                                   #
+#   2. Uses a custom action to robustly detect changed .tfvars files (handles PRs vs main).                #
+#   3. If any files changed, launches a matrix job calling a reusable workflow for each file.              #
+#                                                                                                          #
+# Design notes:                                                                                            #
+#   - Uses concurrency group to avoid overlapping runs per ref.                                            #
+#   - All output is structured for easy consumption by downstream jobs.                                    #
+#   - Downstream workflow is modular -- see `.github/workflows/process-changed-tfvars-files.yaml`.         #
+#   - This workflow is a best practice pattern for targeted, modular CI/CD (scan/test/deploy per env/file) #
+#                                                                                                          #
+# Security:                                                                                                #
+#   - Only necessary secrets are passed to the matrix job.                                                 #
+#   - Principle of least privilege for permissions.                                                        #
+#                                                                                                          #
+# For maintainers:                                                                                         #
+#   - See the custom action `.github/actions/detect-changed-tfvars-files` for detection logic.             #
+#   - Reusable logic for processing is in `.github/workflows/process-changed-tfvars-files.yaml`.           #
+#############################################################################################################
+
+name: Detect Changed terraform.tfvars Files
+
+permissions:
+  contents: write
+  checks: write
+  id-token: write
+
+on:
+  push:
+    branches: [main]
+    paths: ["**/terraform.tfvars"]
+  pull_request:
+    paths: ["**/terraform.tfvars"]
+
+concurrency:
+  group: terraform-checks-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  detect-changed-tfvars-files:
+    name: Detect Changed terraform.tfvars Files
+    runs-on: ubuntu-latest
+    outputs:
+      changed_files: ${{ steps.detect-changed-tfvars-files.outputs.changed_tfvars }}
+    steps:
+
+      - name: Checking out repository
+        run: echo "::notice::Checking out the repository with full history for change detection"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Sync to latest
+        run: |
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+      - name: Detect Changed terraform.tfvars Files
+        id: detect-changed-tfvars-files
+        uses: ./.github/actions/detect-changed-tfvars-files/
+
+      - name: Early Exit
+        if: ${{ steps.detect-changed-tfvars-files.outputs.changed_tfvars == '' }}
+        run: |
+          echo "::notice::No changes detected in .tfvars files. Skipping further steps."
+          exit 0
+
+  process-tfvars-files:
+    name: Process Changed terraform.tfvars File
+    needs: detect-changed-tfvars-files
+    if: ${{ needs.detect-changed-tfvars-files.outputs.changed_files != '' }}
+    strategy:
+      fail-fast: false # ensures that if any one matrix job fails, the other file jobs keep running to completion
+      matrix:
+        tfvars_file: ${{ fromJson(needs.detect-changed-tfvars-files.outputs.changed_files) }}
+    uses: ./.github/workflows/process-changed-tfvars-files.yaml
+    with:
+      tfvars_file: ${{ matrix.tfvars_file }}
+    secrets:
+      GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT: ${{ secrets.GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}

@@ -1,0 +1,80 @@
+######################################################################################################
+# Composite Action: Create Terraform Backend Config File                                             #
+#                                                                                                    #
+# Purpose:                                                                                           #
+#   - Generates a backend.tfvars file for the given environment, so Terraform can store state        #
+#     in the correct Azure Blob Storage location.                                                    #
+#   - Makes backend config modular, per-directory, and driven by tfvars and workflow context.        #
+#                                                                                                    #
+# Best Practices:                                                                                    #
+#   - All backend config values are passed as explicit inputs.                                       #
+#   - Output file goes in the correct directory for downstream Terraform steps.                      #
+#   - Sensitive secrets (subscription_id, tenant_id) passed only as needed.                          #
+######################################################################################################
+
+name: Create Terraform backend config file
+description: Create a Terraform backend config file for Azure
+
+inputs:
+  app_name:
+    description: "App name"
+    required: true
+  env:
+    description: "Environment (e.g. dev, prod)"
+    required: true
+  location:
+    description: "Location (e.g. eastus, westeurope)"
+    required: true
+  file:
+    description: "Path to the terraform.tfvars file"
+    required: true
+  resource_group_name:
+    description: "Resource Group name"
+    required: true
+  storage_account_name:
+    description: "Storage Account name"
+    required: true
+  container_name:
+    description: "Blob Container name"
+    required: true
+  subscription_id:
+    description: "Azure Subscription ID"
+    required: true
+  tenant_id:
+    description: "Azure Tenant ID"
+    required: true
+  dir:
+    description: "Directory to place backend config (optional, defaults to current directory)"
+    required: false
+    default: "."
+
+outputs:
+  app_name:
+    description: "Echoed app_name input"
+    value: ${{ steps.set-outputs.outputs.app_name }}
+  env:
+    description: "Echoed env input"
+    value: ${{ steps.set-outputs.outputs.env }}
+  location:
+    description: "Echoed location input"
+    value: ${{ steps.set-outputs.outputs.location }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create Terraform backend config file
+      id: set-outputs
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" \
+          "${{ inputs.app_name }}" \
+          "${{ inputs.env }}" \
+          "${{ inputs.location }}" \
+          "${{ inputs.file }}" \
+          "${{ inputs.resource_group_name }}" \
+          "${{ inputs.storage_account_name }}" \
+          "${{ inputs.container_name }}" \
+          "${{ inputs.subscription_id }}" \
+          "${{ inputs.tenant_id }}" \
+          "${{ inputs.dir }}"

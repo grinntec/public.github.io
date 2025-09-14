@@ -1,0 +1,57 @@
+#######################################################################################################
+# Composite Action: Extract tfvars Values                                                             #
+#                                                                                                     #
+# Purpose:                                                                                            #
+#   - Extracts app_name, env, and location from a terraform.tfvars file and exposes them as outputs.  #
+#   - Useful for modular workflows that need to consume tfvars values as environment or job outputs.  #
+#                                                                                                     #
+# How it works:                                                                                       #
+#   - Accepts a tfvars file path and (optionally) a working directory as inputs.                      #
+#   - Calls a shell script that changes to the working directory, validates the file, and extracts    #
+#     the required values.                                                                            #
+#   - The script sets outputs for app_name, env, location, and a comma-separated keys list.           #
+#                                                                                                     #
+# Why this is needed:                                                                                 #
+#   - Allows dynamic, environment-driven workflows in CI/CD by extracting tfvars values at runtime.   #
+#   - Avoids hardcoding or duplicating tfvars values in workflow YAML.                                #
+#######################################################################################################
+
+name: "Extract tfvars Values"
+description: "Extracts app_name, env, and location from a terraform.tfvars file and exposes them as outputs."
+
+inputs:
+  file:
+    description: "Path to the terraform.tfvars file"
+    required: false
+    default: "terraform.tfvars"
+  working_directory:
+    description: "Directory to run the extraction in"
+    required: false
+    default: "."
+
+outputs:
+  app_name:
+    description: "Extracted app_name value"
+    value: ${{ steps.extract.outputs.app_name }}
+  env:
+    description: "Extracted env value"
+    value: ${{ steps.extract.outputs.env }}
+  location:
+    description: "Extracted location value"
+    value: ${{ steps.extract.outputs.location }}
+  keys:
+    description: "Comma-separated list of keys extracted from tfvars"
+    value: ${{ steps.extract.outputs.keys }}
+
+runs:
+  using: "composite"
+  steps:
+    # Step: Extract tfvars values to outputs
+    # - Makes the script executable and calls it, passing the file and working directory as arguments.
+    # - The script will extract app_name, env, and location, and set them as outputs for downstream steps.
+    - name: Extract tfvars values to outputs
+      id: extract
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.file }}" "${{ inputs.working_directory }}"

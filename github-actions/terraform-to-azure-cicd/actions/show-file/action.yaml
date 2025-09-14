@@ -1,0 +1,35 @@
+######################################################################################################
+# Composite Action: Show File Processing                                                             #
+#                                                                                                    #
+# Purpose:                                                                                           #
+#   - Prints which .tfvars file is being processed and outputs its directory and contents.            #
+#   - Useful for debugging and audit trails in Terraform CI/CD.                                      #
+#                                                                                                    #
+# Best Practices:                                                                                    #
+#   - Always print the file path and directory to help trace issues in multi-env setups.             #
+#   - Show file contents for troubleshooting, but be careful not to leak secrets.                    #
+#   - Modular design: delegates all logic to a shell script for reuse and maintainability.           #
+######################################################################################################
+
+name: 'Show File Processing'
+description: 'Shows the content of tfvars file being processed'
+
+inputs:
+  tfvars_file:
+    description: 'Path to the tfvars file'
+    required: true 
+
+outputs:
+  dir:
+    description: 'Directory containing the tfvars file'
+    value: ${{ steps.showfile.outputs.dir }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run script
+      id: showfile
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.tfvars_file }}"

@@ -1,0 +1,20 @@
+name: Terraform Plan
+description: Run terraform plan via script
+
+inputs:
+  file:
+    description: "Path to the .tfvars file"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run Terraform Plan
+      shell: bash
+      env:
+        GH_PAT: ${{ env.GH_PAT }}
+        TF_VAR_azure_subscription_id: ${{ env.TF_VAR_azure_subscription_id }}
+        TF_VAR_azure_tenant_id: ${{ env.TF_VAR_azure_tenant_id }}
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh" "${{ inputs.file }}" "${{ inputs.author_name }}" "${{ inputs.author_email }}"

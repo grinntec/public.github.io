@@ -1,0 +1,32 @@
+#######################################################################################################
+# Composite Action: Ensure Terraform Lockfile Exist                                                   #
+#                                                                                                     #
+# Purpose:                                                                                            #
+#   - Ensures every directory containing .tf files has a .terraform.lock.hcl.                         #
+#   - Runs 'terraform init -backend=false' in any directory missing the lockfile.                     #
+#                                                                                                     #
+# Why this is needed:                                                                                 #
+#   - The .terraform.lock.hcl file locks provider versions for reproducible, deterministic            #
+#     Terraform runs. Without it, provider versions may drift, leading to unexpected results          #
+#     or CI/CD failures.                                                                              #
+#   - Some CI/CD pipelines or Terraform commands (e.g., validate, plan) require the lockfile          #
+#     to exist, even if you are not applying changes.                                                 #
+#   - This action ensures all relevant directories are ready for safe, consistent automation.         #
+#######################################################################################################
+
+name: Ensure Terraform Lockfile Exist
+description: Creates .terraform.lock.hcl in Terraform directories if missing
+
+runs:
+  using: "composite"
+  steps:
+    # Step: Ensure Terraform Lockfile Exist
+    # - Calls a script that finds all unique directories containing .tf files.
+    # - For each, checks for .terraform.lock.hcl and runs init if missing.
+    # - Reports which directories were initialized or if all lockfiles are present.
+    - name: Ensure Terraform Lockfile Exist
+      id: detect
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh"

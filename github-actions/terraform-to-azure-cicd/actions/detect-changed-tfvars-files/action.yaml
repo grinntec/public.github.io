@@ -1,0 +1,33 @@
+######################################################################################################
+# Composite Action: Detect Changed .tfvars Files                                                     #
+#                                                                                                    #
+# Detects which .tfvars (Terraform variable) files have changed in the repo and outputs the results. #
+# - Robustly handles both PRs and direct pushes to main (see script for diff logic).                 #
+# - Output is always a JSON array (empty if no changes).                                             #
+# - Drives downstream CI/CD such as targeted validation, linting, or deployment.                     #
+#                                                                                                    #
+# Usage, examples, and troubleshooting:                                                              #
+#   See: ./.github/actions/detect-changed-tfvars-files/README.md                                     #
+######################################################################################################
+
+name: "Detect Changed .tfvars Files"
+description: |
+  Detects changed .tfvars files in the repo and outputs:
+    - changed_tfvars: JSON array of changed .tfvars files
+
+  Output is always set, and will be an empty array if no changes are found.
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run detection script
+      id: detect
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/script.sh"
+        "${{ github.action_path }}/script.sh"
+
+outputs:
+  changed_tfvars:
+    description: "JSON array of changed .tfvars files (e.g. [\"env/dev.tfvars\"] or [])."
+    value: ${{ steps.detect.outputs.changed_tfvars }}
