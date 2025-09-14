@@ -105,3 +105,7 @@ jobs:
 - [actions/cache documentation](https://github.com/actions/cache)
 
 ---
+
+## License
+
+[MIT License](../LICENSE) © 2025 Grinntec
