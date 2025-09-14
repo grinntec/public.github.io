@@ -1,23 +1,25 @@
 # Configure Git for Private Terraform Modules GitHub Action
 
-This composite GitHub Action configures `git` to allow Terraform to fetch private modules from GitHub repositories using a Personal Access Token (PAT). It's essential when your Terraform configurations reference private module sources such as `git::https://github.com/your-org/private-terraform-module.git`.
+This composite GitHub Action configures `git` to use a GitHub Personal Access Token (PAT) for accessing private Terraform modules hosted on GitHub. It ensures that any Terraform operation—such as `terraform init`—can fetch private modules without manual authentication, enabling secure, automated CI/CD pipelines.
 
 ---
 
 ## Features
 
-- **Configures global git credentials:**  
-  Sets up git so that any `https://github.com/` URL is automatically rewritten to include your GitHub PAT, allowing `terraform init` and other tools to clone private modules without manual intervention.
-- **Supports modular and reusable workflows:**  
-  Makes it easy to add private module support to any Terraform CI/CD pipeline.
-- **Security:**  
-  Does **not** echo the token to logs and is safe for use in GitHub Actions.
+- **Automatic git credential setup:**  
+  Configures global git credentials so any `https://github.com/` URL is transparently rewritten to include your GitHub PAT, allowing seamless authentication for private Terraform modules.
+- **Security-first design:**  
+  Never prints the PAT to logs, redacts tokens from debug output, and uses secure GitHub Actions secrets to pass credentials.
+- **Status output:**  
+  Provides clear status output (`configured=true/false`) and summary notices in the Actions UI for auditability and debugging.
+- **Modular and reusable:**  
+  Works in any workflow, repo, or environment where Terraform needs private module access.
 
 ---
 
 ## Usage
 
-Add a step before any Terraform operation that fetches private modules:
+Add a step before any Terraform operation that requires private module access:
 
 ```yaml
 - name: Configure git for private modules
@@ -26,7 +28,7 @@ Add a step before any Terraform operation that fetches private modules:
     github_token: ${{ secrets.YOUR_GITHUB_PAT }}
 ```
 
-Replace `YOUR_GITHUB_PAT` with a secret that has at least `repo` scope for read access.
+Replace `YOUR_GITHUB_PAT` with a secret that has at least `repo` scope for read access to the needed modules.
 
 **Example in a workflow:**
 
@@ -52,7 +54,15 @@ jobs:
 
 | Name          | Description                            | Required | Example                              |
 |---------------|----------------------------------------|----------|--------------------------------------|
-| github_token  | GitHub PAT for private repo access     | Yes      | `${{ secrets.GH_PAT }}`              |
+| github_token  | GitHub PAT for private repo access     | Yes      | `${{ secrets.GRINNTEC_TERRAFORM_DEPLOYMENTS_AZURE_PAT }}` |
+
+---
+
+## Outputs
+
+| Name        | Description                                                 | Example  |
+|-------------|-------------------------------------------------------------|----------|
+| configured  | Whether git config was set successfully (`true`/`false`)    | `true`   |
 
 ---
 
@@ -63,14 +73,15 @@ jobs:
   git config --global url."https://<github_token>:x-oauth-basic@github.com/".insteadOf "https://github.com/"
   ```
 - This causes all `https://github.com/` URLs (used by Terraform modules) to use the token for authentication automatically.
-- Only affects the current workflow runner; it does **not** persist globally.
+- Only affects the current workflow runner; does **not** persist outside the workflow run.
 
 ---
 
 ## Security
 
-- **Never echo or log the actual token.**
-- Use [GitHub Actions secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets) to provide the token securely.
+- **Never prints or logs the actual token.**
+- Redacts any accidental token in debug output.
+- Accepts only via secure GitHub Actions secrets.
 - Use the least privilege required (`repo` scope for private repos).
 
 ---
@@ -80,6 +91,17 @@ jobs:
 - Use this action **before** any Terraform step that reads private modules.
 - Rotate your PAT regularly and use organization secrets if possible.
 - Do **not** use the same PAT for unrelated workflows or repositories.
+- Remove the git config after workflow completion if extra security is desired (not strictly necessary for ephemeral CI runners).
+
+---
+
+## Troubleshooting
+
+- If `configured=false` or you see errors about module access:
+  - Ensure the PAT is set and passed correctly via workflow secrets.
+  - Ensure the PAT has sufficient permissions (`repo` scope).
+  - Check for typos or misconfigured secret names.
+  - Review workflow logs for debug output and notices.
 
 ---
 
