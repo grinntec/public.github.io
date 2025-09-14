@@ -125,3 +125,7 @@ jobs:
 - Combine with other detection actions for a fully automated, flexible CI pipeline.
 
 ---
+
+## License
+
+[MIT License](../LICENSE) © 2025 Grinntec
