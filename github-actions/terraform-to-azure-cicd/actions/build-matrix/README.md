@@ -1,23 +1,28 @@
 # Build Matrix from CI Modes GitHub Action
 
-This composite GitHub Action converts a JSON mapping of directory-to-mode into an array of objects, making it easy to use as a matrix in downstream jobs. It is ideal for dynamically generating test, validation, or deployment jobs based on the CI modes determined for multiple Terraform (or other) directories.
+This composite GitHub Action transforms a JSON mapping of directory names to CI modes (such as `{"test-00":"validate","test-01":"apply"}`) into an array of objects, allowing dynamic matrix job creation in downstream workflows. It is designed to automate testing, validation, or deployment pipelines for multiple Terraform (or other) directories.
 
 ---
 
 ## Features
 
-- **Input:** Accepts a JSON object mapping directory names to CI modes (e.g., `{"test-00":"validate","test-01":"apply"}`).
-- **Output:** Produces a JSON array of `{dir, mode}` objects suitable for use as a [matrix strategy](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) in GitHub Actions.
-- **Robust:** Validates the output and falls back to an empty matrix if the input is invalid.
-- **Portable:** Works with any CI mode naming scheme.
+- **Input:**  
+  Accepts a JSON object mapping directory names to CI modes (e.g., `{"test-00":"validate","test-01":"apply"}`).
+
+- **Output:**  
+  Produces a JSON array of `{dir, mode}` objects, ready for use as a [matrix strategy](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) in GitHub Actions.
+
+- **Validation:**  
+  Checks that the input is valid; outputs an empty matrix and emits a warning if input is invalid.
+
+- **Portable and Flexible:**  
+  Works with any directory and CI mode naming scheme.
 
 ---
 
-## Usage
+## Usage Example
 
-### With Other Actions
-
-This action is typically used after a step that determines which directories changed and what CI mode should be run in each (for example, after [determine-ci-mode](../determine-ci-mode/)).
+This action is typically used after a step that determines which directories changed and what CI mode should be run for each (such as `determine-ci-mode`).
 
 ```yaml
 jobs:
@@ -38,9 +43,7 @@ jobs:
         run: echo '${{ steps.matrix.outputs.matrix }}'
 ```
 
-### Use as a Matrix
-
-Pass the output to job matrix:
+Use the output for a matrix job:
 
 ```yaml
 jobs:
@@ -75,8 +78,10 @@ jobs:
 
 ## Implementation Details
 
-- **Shell Script:** Uses Bash and [jq](https://stedolan.github.io/jq/) to transform the input map to an array.
-- **Validation:** Ensures the output is valid JSON. If not, emits an empty array to avoid workflow failures.
+- **Shell Script:**  
+  Uses Bash and [`jq`](https://stedolan.github.io/jq/) to convert the input mapping to an array.
+- **Validation:**  
+  Ensures the output is valid JSON. If input is invalid, emits an empty array and a warning in the Actions log.
 
 #### Example transformation
 
@@ -101,6 +106,15 @@ jobs:
 ## Requirements
 
 - **jq** must be available on the runner (GitHub-hosted runners include this by default).
+
+---
+
+## Troubleshooting
+
+- **Output is `[]`:**  
+  Check that your input is a valid JSON object (not an array). Example valid input: `{"test-00":"validate","test-01":"apply"}`.
+- **Warning about invalid JSON:**  
+  Double-check that your workflow passes the correct variable and that it is properly quoted/escaped.
 
 ---
 
