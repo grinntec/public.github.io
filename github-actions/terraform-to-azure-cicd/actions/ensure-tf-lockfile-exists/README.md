@@ -88,6 +88,6 @@ jobs:
 
 ## License
 
-MIT (or your repository’s license)
+[MIT License](../LICENSE) © 2025 Grinntec
 
 ---
