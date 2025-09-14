@@ -1,6 +1,6 @@
 # Show File Processing GitHub Action
 
-This composite GitHub Action is designed to print and output information about a specified `terraform.tfvars` (or any `.tfvars`) file during a CI/CD workflow. It aids in traceability, debugging, and auditability by making it clear which configuration file is being processed, what its directory is, and optionally providing summary information in the Actions UI.
+This composite GitHub Action prints and outputs information about a specified `terraform.tfvars` (or any `.tfvars`) file during CI/CD workflows. It aids traceability, debugging, and auditability by making it clear which configuration file is being processed, what its directory is, and provides summary information for the Actions UI.
 
 ---
 
@@ -65,11 +65,9 @@ Add a step to your workflow:
 If called with `environments/dev/terraform.tfvars`, the summary in the Actions UI will include:
 
 ```
-## tfvars file processed
+## TFVARS File Being Processed
 
-**File:** `environments/dev/terraform.tfvars`
-
-**Directory:** `environments/dev`
+📄 `environments/dev/terraform.tfvars`
 ```
 
 ---
@@ -96,6 +94,6 @@ If called with `environments/dev/terraform.tfvars`, the summary in the Actions U
 
 ## License
 
-MIT (or your repository’s license)
+[MIT License](../LICENSE) © 2025 Grinntec
 
 ---
