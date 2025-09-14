@@ -1,25 +1,26 @@
 # Detect Changed `.tfvars` Files GitHub Action
 
-This custom [composite GitHub Action](https://docs.github.com/en/actions/creating-actions/creating-a-composite-action) detects which `.tfvars` (Terraform variable) files have changed in your repository. It outputs a structured JSON array of changed files, making it easy to drive downstream CI/CD workflows such as targeted Terraform validation, formatting, or deployment.
+This composite GitHub Action detects which `.tfvars` (Terraform variable) files have changed in your repository—either in a pull request or a direct commit to your main branch. It outputs a structured JSON array of changed files, enabling downstream CI/CD workflows to run targeted validation, formatting, security scanning, or deployments per environment.
 
 ---
 
 ## Features
 
-- **Robust Change Detection**  
-  - For Pull Requests (PRs) or feature branches, compares against the PR base (`main` or other) to find all changed `.tfvars` files.
-  - For direct commits to the default branch (e.g., `main`), compares the most recent commit to its parent to find changed `.tfvars` files.
-- **Outputs JSON Arrays**  
-  - Outputs a `changed_tfvars` JSON array (empty if none), suitable for use in matrix or conditional jobs.
-- **Safe and Easy to Integrate**  
-  - Handles shallow clones, missing files, and various repo layouts.
-  - Can be used as a prerequisite for downstream targeted Terraform jobs.
+- **Robust Change Detection:**  
+  - For Pull Requests (PRs) or feature branches, compares against the PR base branch (`main` or other) to find all changed `.tfvars` files.
+  - For direct commits to the default branch (typically `main`), compares the most recent commit to its parent for changes.
+- **Structured Output:**  
+  - Always emits a `changed_tfvars` JSON array, even if empty, for easy consumption in matrix or conditional jobs.
+- **Safe for All Repo Layouts:**  
+  - Handles shallow clones, missing files, and monorepos with multiple environments.
+- **Traceable:**  
+  - Prints debug information and always outputs a valid JSON array, making it easy to audit which files triggered downstream jobs.
 
 ---
 
 ## Usage
 
-Add a step to your workflow (or just use the [included workflow example](../../workflows/detect-changed-tfvars-files.yaml)):
+Add a step to your workflow (or use the [included workflow example](../../workflows/detect-changed-tfvars-files.yaml)):
 
 ```yaml
 jobs:
@@ -32,7 +33,7 @@ jobs:
 
       - name: Detect Changed .tfvars Files
         id: detect
-        uses: ./.github/actions/detect-changed-tfvars-files/
+        uses: ./.github/actions/detect-changed-tfvars-files
 
       - name: Show output
         run: |
@@ -52,7 +53,7 @@ jobs:
         with:
           fetch-depth: 0
       - id: detect
-        uses: ./.github/actions/detect-changed-tfvars-files/
+        uses: ./.github/actions/detect-changed-tfvars-files
 
   process:
     needs: detect
@@ -78,7 +79,7 @@ This action requires no inputs.
 
 | Name             | Description                                                        | Example                                                           |
 |------------------|--------------------------------------------------------------------|-------------------------------------------------------------------|
-| `changed_tfvars` | JSON array of changed `.tfvars` files (may be empty: `[]`)         | `["env/dev/terraform.tfvars","env/prod/terraform.tfvars"]`        |
+| `changed_tfvars` | JSON array of changed `.tfvars` files (may be empty: `[]`)         | `["environments/dev/terraform.tfvars","environments/prod/terraform.tfvars"]`        |
 
 ---
 
@@ -108,10 +109,10 @@ environments/
     terraform.tfvars
 ```
 
-- If you change both files in a PR, the action outputs:
-  ```
-  ["environments/dev/terraform.tfvars","environments/prod/terraform.tfvars"]
-  ```
+If you change both files in a PR, the action outputs:
+```
+["environments/dev/terraform.tfvars","environments/prod/terraform.tfvars"]
+```
 
 ---
 
@@ -129,7 +130,7 @@ The underlying script (`script.sh`):
 
 ## Troubleshooting & Best Practices
 
-- Always run checkout with `fetch-depth: 0` for accurate diffs.
+- **Always run checkout with `fetch-depth: 0`** for accurate diffs.
 - If you use a non-`main` default branch, adapt the script’s `base_branch`.
 - Use the output as a matrix or for conditional downstream steps.
 - The action will not fail if no `.tfvars` files are changed; it emits an empty array.
@@ -138,6 +139,6 @@ The underlying script (`script.sh`):
 
 ## License
 
-MIT (or your repository’s license)
+[MIT License](../LICENSE) © 2025 Grinntec
 
 ---
