@@ -129,3 +129,7 @@ jobs:
 - Will fail if required inputs are missing or tfvars file is not found.
 
 ---
+
+## License
+
+[MIT License](../LICENSE) © 2025 Grinntec
