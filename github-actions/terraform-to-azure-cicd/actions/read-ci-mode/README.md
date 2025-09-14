@@ -1,19 +1,19 @@
 # Read CI Mode from .tfvars GitHub Action
 
-This composite GitHub Action extracts the value of `ci_mode` from a specified Terraform `.tfvars` file. It is designed to help dynamic pipelines determine what CI/CD operation (e.g., validate, apply, destroy) should be performed for each environment or stack, based on configuration in the `.tfvars`.
+This composite GitHub Action extracts the value of `ci_mode` from a specified Terraform `.tfvars` file. It enables dynamic pipelines to determine what CI/CD operation (e.g., validate, apply, destroy) should be performed for each environment or stack, based directly on configuration.
 
 ---
 
 ## Features
 
-- **Extracts `ci_mode` From Any `.tfvars` File**  
-  Reads and outputs the `ci_mode` value, supporting files with spaces and double quotes.
-- **Robust Error Handling**  
-  Fails fast with clear messages if the file is missing or does not contain `ci_mode`.
+- **Extracts `ci_mode` from any `.tfvars` file**  
+  Reads and outputs the `ci_mode` value, handling whitespace and quoted values.
+- **Robust error handling**  
+  Fails fast with clear error messages if the file is missing or does not contain `ci_mode`.
 - **Traceability**  
-  Prints concise summaries to the GitHub Actions UI for audit and debugging.
-- **Modular Output**  
-  Sets the extracted `ci_mode` as a GitHub Actions output variable for use in downstream jobs.
+  Writes a concise summary to the GitHub Actions UI for audit and debugging.
+- **Modular output**  
+  Exposes the extracted `ci_mode` as a GitHub Actions output variable for use in downstream jobs.
 
 ---
 
@@ -82,7 +82,11 @@ ci_mode=apply
 And the Actions summary will include:
 ```
 ## CI Mode
-`apply`
+📝 `apply`
+
+> PLAN will run `terraform plan`
+> APPLY will run `terraform apply`
+> DESTROY will run `terraform destroy`
 ```
 
 ---
@@ -105,6 +109,6 @@ And the Actions summary will include:
 
 ## License
 
-MIT (or your repository’s license)
+[MIT License](../LICENSE) © 2025 Grinntec
 
 ---
